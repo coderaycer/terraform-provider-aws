@@ -9,6 +9,8 @@ resource "aws_resiliencehub_resiliency_policy" "test_policy" {
   policy_name        = "test"
   policy_description = "tester"
 
+  data_location_constraint = "AnyLocation"
+
   tier = "NonCritical"
 
   policy {
