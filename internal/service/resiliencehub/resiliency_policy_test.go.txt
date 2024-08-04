@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 package resiliencehub_test
-
 // **PLEASE DELETE THIS AND ALL TIP COMMENTS BEFORE SUBMITTING A PR FOR REVIEW!**
 //
 // TIP: ==== INTRODUCTION ====
@@ -241,11 +240,11 @@ func testAccCheckResiliencyPolicyDestroy(ctx context.Context) resource.TestCheck
 			_, err := conn.DescribeResiliencyPolicy(ctx, &resiliencehub.DescribeResiliencyPolicyInput{
 				ResiliencyPolicyId: aws.String(rs.Primary.ID),
 			})
-			if errs.IsA[*types.ResourceNotFoundException](err) {
+			if errs.IsA[*types.ResourceNotFoundException](err){
 				return nil
 			}
 			if err != nil {
-				return create.Error(names.ResilienceHub, create.ErrActionCheckingDestroyed, tfresiliencehub.ResNameResiliencyPolicy, rs.Primary.ID, err)
+			        return create.Error(names.ResilienceHub, create.ErrActionCheckingDestroyed, tfresiliencehub.ResNameResiliencyPolicy, rs.Primary.ID, err)
 			}
 
 			return create.Error(names.ResilienceHub, create.ErrActionCheckingDestroyed, tfresiliencehub.ResNameResiliencyPolicy, rs.Primary.ID, errors.New("not destroyed"))

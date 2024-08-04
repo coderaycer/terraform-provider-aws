@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/YakDriver/regexache"
@@ -20,7 +21,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -53,6 +56,7 @@ const (
 
 type resourceResiliencyPolicy struct {
 	framework.ResourceWithConfigure
+	framework.WithImportByID
 	framework.WithTimeouts
 }
 
@@ -63,6 +67,8 @@ func (r *resourceResiliencyPolicy) Metadata(_ context.Context, req resource.Meta
 func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			names.AttrID: framework.IDAttribute(),
+			"arn":        framework.ARNAttributeComputedOnly(),
 			"policy_name": schema.StringAttribute{
 				Required: true,
 				PlanModifiers: []planmodifier.String{
@@ -72,8 +78,6 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 					stringvalidator.RegexMatches(regexache.MustCompile("^[A-Za-z0-9][A-Za-z0-9_\\-]{1,59}$"), "Must match ^[A-Za-z0-9][A-Za-z0-9_\\-]{1,59}$"),
 				},
 			},
-			names.AttrID: framework.IDAttribute(),
-			"arn":        framework.ARNAttributeComputedOnly(),
 			"policy_description": schema.StringAttribute{
 				Optional: true,
 				PlanModifiers: []planmodifier.String{
@@ -88,15 +92,14 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 				Computed:   true,
 				Optional:   true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"tier": schema.StringAttribute{
-				Required:   true,
 				CustomType: fwtypes.StringEnumType[awstypes.ResiliencyPolicyTier](),
+				Required:   true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"estimated_cost_tier": schema.StringAttribute{
@@ -107,11 +110,14 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 				},
 			},
 			names.AttrTags: tftags.TagsAttribute(),
-			// names.AttrTagsAll: tftags.TagsAttributeComputedOnly(),
 		},
 		Blocks: map[string]schema.Block{
 			"policy": schema.SingleNestedBlock{
-				CustomType: fwtypes.NewObjectTypeOf[resourceResiliencyComponentModel](ctx),
+				CustomType:  fwtypes.NewObjectTypeOf[resourceResiliencyComponentModel](ctx),
+				Description: "AWS Resilience Hub resiliency failure policy.",
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.RequiresReplace(),
+				},
 				Validators: []validator.Object{
 					objectvalidator.IsRequired(),
 				},
@@ -119,31 +125,18 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 					"az": schema.SingleNestedBlock{
 						CustomType:  fwtypes.NewObjectTypeOf[resourceResiliencyObjectiveModel](ctx),
 						Description: "AWS Resilience Hub RTO and RPO target to measure resiliency for potential availability zone disruptions.",
-						Attributes: map[string]schema.Attribute{
-							"rto_in_secs": schema.Int32Attribute{
-								Description: "Recovery Time Objective (RTO) in seconds.",
-								Required:    true,
-								PlanModifiers: []planmodifier.Int32{
-									int32planmodifier.RequiresReplace(),
-								},
-							},
-							"rpo_in_secs": schema.Int32Attribute{
-								Description: "Recovery Point Objective (RPO) in seconds.",
-								Required:    true,
-								PlanModifiers: []planmodifier.Int32{
-									int32planmodifier.RequiresReplace(),
-								},
-							},
+						PlanModifiers: []planmodifier.Object{
+							objectplanmodifier.RequiresReplace(),
 						},
-					},
-					"region": schema.SingleNestedBlock{
-						CustomType:  fwtypes.NewObjectTypeOf[resourceResiliencyObjectiveModel](ctx),
-						Description: "AWS Resilience Hub RTO and RPO target to measure resiliency for potential region disruptions.",
+						Validators: []validator.Object{
+							objectvalidator.IsRequired(),
+						},
 						Attributes: map[string]schema.Attribute{
 							"rto_in_secs": schema.Int32Attribute{
 								Description: "Recovery Time Objective (RTO) in seconds.",
 								Required:    true,
 								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
 								},
 							},
@@ -151,6 +144,7 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 								Description: "Recovery Point Objective (RPO) in seconds.",
 								Required:    true,
 								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
 								},
 							},
@@ -159,11 +153,18 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 					"hardware": schema.SingleNestedBlock{
 						CustomType:  fwtypes.NewObjectTypeOf[resourceResiliencyObjectiveModel](ctx),
 						Description: "AWS Resilience Hub RTO and RPO target to measure resiliency for potential infrastructure disruptions.",
+						PlanModifiers: []planmodifier.Object{
+							objectplanmodifier.RequiresReplace(),
+						},
+						Validators: []validator.Object{
+							objectvalidator.IsRequired(),
+						},
 						Attributes: map[string]schema.Attribute{
 							"rto_in_secs": schema.Int32Attribute{
 								Description: "Recovery Time Objective (RTO) in seconds.",
 								Required:    true,
 								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
 								},
 							},
@@ -171,6 +172,7 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 								Description: "Recovery Point Objective (RPO) in seconds.",
 								Required:    true,
 								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
 								},
 							},
@@ -179,11 +181,18 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 					"software": schema.SingleNestedBlock{
 						CustomType:  fwtypes.NewObjectTypeOf[resourceResiliencyObjectiveModel](ctx),
 						Description: "AWS Resilience Hub RTO and RPO target to measure resiliency for potential application disruptions.",
+						PlanModifiers: []planmodifier.Object{
+							objectplanmodifier.RequiresReplace(),
+						},
+						Validators: []validator.Object{
+							objectvalidator.IsRequired(),
+						},
 						Attributes: map[string]schema.Attribute{
 							"rto_in_secs": schema.Int32Attribute{
 								Description: "Recovery Time Objective (RTO) in seconds.",
 								Required:    true,
 								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
 								},
 							},
@@ -191,6 +200,32 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 								Description: "Recovery Point Objective (RPO) in seconds.",
 								Required:    true,
 								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
+									int32planmodifier.RequiresReplace(),
+								},
+							},
+						},
+					},
+					"region": schema.SingleNestedBlock{
+						CustomType:  fwtypes.NewObjectTypeOf[resourceResiliencyObjectiveModel](ctx),
+						Description: "AWS Resilience Hub RTO and RPO target to measure resiliency for potential region disruptions.",
+						PlanModifiers: []planmodifier.Object{
+							objectplanmodifier.RequiresReplace(),
+						},
+						Attributes: map[string]schema.Attribute{
+							"rto_in_secs": schema.Int32Attribute{
+								Description: "Recovery Time Objective (RTO) in seconds.",
+								Required:    true,
+								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
+									int32planmodifier.RequiresReplace(),
+								},
+							},
+							"rpo_in_secs": schema.Int32Attribute{
+								Description: "Recovery Point Objective (RPO) in seconds.",
+								Required:    true,
+								PlanModifiers: []planmodifier.Int32{
+									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
 								},
 							},
@@ -223,18 +258,7 @@ func (r *resourceResiliencyPolicy) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	var policy map[string]awstypes.FailurePolicy
-	if err := json.Unmarshal([]byte(plan.Policy.String()), &policy); err != nil {
-		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionCreating, ResNameResiliencyPolicy, "", err),
-			err.Error(),
-		)
-		return
-	}
-
-	// FailurePolicy object map key case must match case in documentation
-	// See https://docs.aws.amazon.com/resilience-hub/latest/APIReference/API_CreateResiliencyPolicy.html
-	in.Policy = modifyFailurePolicyKeys(policy)
+	in.Policy = failurePolicyFromFramework(plan.Policy)
 	in.Tags = getTagsIn(ctx)
 
 	out, err := conn.CreateResiliencyPolicy(ctx, in)
@@ -261,11 +285,20 @@ func (r *resourceResiliencyPolicy) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	createTimeout := r.CreateTimeout(ctx, plan.Timeouts)
+	_, err = waitResiliencyPolicyCreated(ctx, conn, plan.ID.ValueString(), createTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForCreation, ResNameResiliencyPolicy, plan.ID.ValueString(), err),
+			err.Error(),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
 func (r *resourceResiliencyPolicy) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-
 	conn := r.Meta().ResilienceHubClient(ctx)
 
 	var state resourceResiliencyPolicyModel
@@ -274,54 +307,73 @@ func (r *resourceResiliencyPolicy) Read(ctx context.Context, req resource.ReadRe
 		return
 	}
 
-	out, err := findResiliencyPolicyByARN(ctx, conn, state.ARN.ValueString())
+	policy, err := findResiliencyPolicyByID(ctx, conn, state.ID.ValueString())
 	if tfresource.NotFound(err) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 	if err != nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionSetting, ResNameResiliencyPolicy, state.ARN.ValueString(), err),
+			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionSetting, ResNameResiliencyPolicy, state.ID.ValueString(), err),
 			err.Error(),
 		)
 		return
 	}
 
-	state.ARN = flex.StringToFramework(ctx, out.PolicyArn)
-	state.ID = flex.StringToFramework(ctx, out.PolicyName)
+	state.ARN = flex.StringToFramework(ctx, policy.PolicyArn)
+	state.ID = flex.StringToFramework(ctx, policy.PolicyArn)
+
+	resp.Diagnostics.Append(flex.Flatten(ctx, policy, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r *resourceResiliencyPolicy) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 
-	var old, new resourceResiliencyPolicyModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &old)...)
+	var plan, state resourceResiliencyPolicyModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &new)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	conn := r.Meta().ResilienceHubClient(ctx)
 
-	if !new.PolicyDescription.Equal(old.PolicyDescription) {
+	if !plan.PolicyDescription.Equal(state.PolicyDescription) ||
+		!plan.DataLocationConstraint.Equal(state.DataLocationConstraint) ||
+		!plan.Tier.Equal(state.Tier) {
 
-		newPolicyArn := flex.StringFromFramework(ctx, new.ARN)
+		planPolicyId := flex.StringFromFramework(ctx, plan.ID)
 
-		input := &resiliencehub.UpdateResiliencyPolicyInput{
-			PolicyArn:         newPolicyArn,
-			PolicyDescription: flex.StringFromFramework(ctx, new.PolicyDescription),
+		in := &resiliencehub.UpdateResiliencyPolicyInput{
+			PolicyArn: planPolicyId,
 		}
-		_, err := conn.UpdateResiliencyPolicy(ctx, input)
+
+		if !plan.PolicyDescription.Equal(state.PolicyDescription) {
+			in.PolicyDescription = flex.StringFromFramework(ctx, plan.PolicyDescription)
+		}
+
+		if !plan.DataLocationConstraint.Equal(state.DataLocationConstraint) {
+			in.DataLocationConstraint = plan.DataLocationConstraint.ValueEnum()
+		}
+
+		if !plan.Tier.Equal(state.Tier) {
+			in.Tier = plan.Tier.ValueEnum()
+		}
+
+		_, err := conn.UpdateResiliencyPolicy(ctx, in)
 		if err != nil {
-			resp.Diagnostics.AddError(fmt.Sprintf("reading Resilience Hub policy name (%s)", new.PolicyName.String()), err.Error())
+			resp.Diagnostics.AddError(fmt.Sprintf("reading Resilience Hub policy ID (%s)", *planPolicyId), err.Error())
 			return
 		}
 
-		out, err := findResiliencyPolicyByARN(ctx, conn, *newPolicyArn)
+		policy, err := findResiliencyPolicyByID(ctx, conn, *planPolicyId)
 		if tfresource.NotFound(err) {
 			resp.State.RemoveResource(ctx)
 			return
@@ -329,19 +381,29 @@ func (r *resourceResiliencyPolicy) Update(ctx context.Context, req resource.Upda
 
 		if err != nil {
 			resp.Diagnostics.AddError(
-				create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionSetting, ResNameResiliencyPolicy, *newPolicyArn, err),
+				create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionSetting, ResNameResiliencyPolicy, *planPolicyId, err),
 				err.Error(),
 			)
 			return
 		}
 
-		resp.Diagnostics.Append(flex.Flatten(ctx, out, &new)...)
+		updateTimeout := r.UpdateTimeout(ctx, plan.Timeouts)
+		_, err = waitResiliencyPolicyUpdated(ctx, conn, plan.ID.ValueString(), updateTimeout)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForUpdate, ResNameResiliencyPolicy, plan.ID.String(), err),
+				err.Error(),
+			)
+			return
+		}
+
+		resp.Diagnostics.Append(flex.Flatten(ctx, policy, &plan)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &new)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *resourceResiliencyPolicy) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -355,7 +417,7 @@ func (r *resourceResiliencyPolicy) Delete(ctx context.Context, req resource.Dele
 	conn := r.Meta().ResilienceHubClient(ctx)
 
 	_, err := conn.DeleteResiliencyPolicy(ctx, &resiliencehub.DeleteResiliencyPolicyInput{
-		PolicyArn: flex.StringFromFramework(ctx, state.ARN),
+		PolicyArn: flex.StringFromFramework(ctx, state.ID),
 	})
 
 	if errs.IsA[*awstypes.ResourceNotFoundException](err) {
@@ -364,18 +426,102 @@ func (r *resourceResiliencyPolicy) Delete(ctx context.Context, req resource.Dele
 
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("deleting Resilience Hub policy name (%s)", state.PolicyName.String()), err.Error())
+		return
+	}
 
+	deleteTimeout := r.DeleteTimeout(ctx, state.Timeouts)
+	_, err = waitResiliencyPolicyDeleted(ctx, conn, state.ID.ValueString(), deleteTimeout)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForDeletion, ResNameResiliencyPolicy, state.ID.String(), err),
+			err.Error(),
+		)
 		return
 	}
 }
 
 func (r *resourceResiliencyPolicy) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(names.AttrID), req.ID)...)
 }
 
-func findResiliencyPolicyByARN(ctx context.Context, conn *resiliencehub.Client, arn string) (*awstypes.ResiliencyPolicy, error) {
+const (
+	statusChangePending = "Pending"
+	statusDeleting      = "Deleting"
+	statusNormal        = "Normal"
+	statusUpdated       = "Updated"
+	statusCompleted     = "Completed"
+)
+
+func waitResiliencyPolicyCreated(ctx context.Context, conn *resiliencehub.Client, id string, timeout time.Duration) (*awstypes.ResiliencyPolicy, error) {
+	stateConf := &retry.StateChangeConf{
+		Pending:                   []string{},
+		Target:                    []string{statusCompleted},
+		Refresh:                   statusResiliencyPolicy(ctx, conn, id),
+		Timeout:                   timeout,
+		NotFoundChecks:            20,
+		ContinuousTargetOccurence: 2,
+	}
+
+	outputRaw, err := stateConf.WaitForStateContext(ctx)
+	if out, ok := outputRaw.(*awstypes.ResiliencyPolicy); ok {
+		return out, err
+	}
+
+	return nil, err
+}
+
+func waitResiliencyPolicyUpdated(ctx context.Context, conn *resiliencehub.Client, id string, timeout time.Duration) (*awstypes.ResiliencyPolicy, error) {
+	stateConf := &retry.StateChangeConf{
+		Pending:                   []string{},
+		Target:                    []string{statusCompleted},
+		Refresh:                   statusResiliencyPolicy(ctx, conn, id),
+		Timeout:                   timeout,
+		NotFoundChecks:            20,
+		ContinuousTargetOccurence: 2,
+	}
+
+	outputRaw, err := stateConf.WaitForStateContext(ctx)
+	if out, ok := outputRaw.(*awstypes.ResiliencyPolicy); ok {
+		return out, err
+	}
+
+	return nil, err
+}
+
+func waitResiliencyPolicyDeleted(ctx context.Context, conn *resiliencehub.Client, id string, timeout time.Duration) (*awstypes.ResiliencyPolicy, error) {
+	stateConf := &retry.StateChangeConf{
+		Pending: []string{},
+		Target:  []string{},
+		Refresh: statusResiliencyPolicy(ctx, conn, id),
+		Timeout: timeout,
+	}
+
+	outputRaw, err := stateConf.WaitForStateContext(ctx)
+	if out, ok := outputRaw.(*awstypes.ResiliencyPolicy); ok {
+		return out, err
+	}
+
+	return nil, err
+}
+
+func statusResiliencyPolicy(ctx context.Context, conn *resiliencehub.Client, id string) retry.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		out, err := findResiliencyPolicyByID(ctx, conn, id)
+		if tfresource.NotFound(err) {
+			return nil, "", nil
+		}
+
+		if err != nil {
+			return nil, "", err
+		}
+
+		return out, statusCompleted, nil
+	}
+}
+
+func findResiliencyPolicyByID(ctx context.Context, conn *resiliencehub.Client, id string) (*awstypes.ResiliencyPolicy, error) {
 	in := &resiliencehub.DescribeResiliencyPolicyInput{
-		PolicyArn: aws.String(arn),
+		PolicyArn: aws.String(id),
 	}
 
 	out, err := conn.DescribeResiliencyPolicy(ctx, in)
@@ -397,6 +543,67 @@ func findResiliencyPolicyByARN(ctx context.Context, conn *resiliencehub.Client, 
 	return out.Policy, nil
 }
 
+func (r *resourceResiliencyPolicyModel) setId() {
+	r.ID = r.ARN
+}
+
+// failurePolicyFromFramework function modifies FailurePolicy keys to align with CreateResiliencyPolicy
+// FailurePolicy valid key values.
+// See https://docs.aws.amazon.com/resilience-hub/latest/APIReference/API_CreateResiliencyPolicy.html
+func failurePolicyFromFramework(planPolicy fwtypes.ObjectValueOf[resourceResiliencyComponentModel]) map[string]awstypes.FailurePolicy {
+	inPolicy := make(map[string]awstypes.FailurePolicy)
+
+	policyKeyMap := map[string]string{
+		"az":       "AZ",
+		"hardware": "Hardware",
+		"region":   "Region",
+		"software": "Software",
+	}
+
+	for attr, value := range planPolicy.Attributes() {
+		if validKey, exists := policyKeyMap[attr]; exists {
+			var policy awstypes.FailurePolicy
+			var failurePolicy map[string]any
+			if err := json.Unmarshal([]byte(value.String()), &failurePolicy); err == nil {
+				if rpoInSecs, ok := failurePolicy["rpo_in_secs"].(float64); ok {
+					policy.RpoInSecs = int32(rpoInSecs)
+				}
+				if rtoInSecs, ok := failurePolicy["rto_in_secs"].(float64); ok {
+					policy.RtoInSecs = int32(rtoInSecs)
+				}
+			}
+			inPolicy[validKey] = policy
+		}
+	}
+
+	return inPolicy
+}
+
+func getFailurePolicy(planPolicy fwtypes.ObjectValueOf[resourceResiliencyComponentModel]) []string {
+
+	var values []string
+
+	policyKeyMap := map[string]string{
+		"az":       "AZ",
+		"hardware": "Hardware",
+		"region":   "Region",
+		"software": "Software",
+	}
+
+	for attr, value := range planPolicy.Attributes() {
+		if _, exists := policyKeyMap[attr]; exists {
+			var obj map[string]any
+			// var policy awstypes.FailurePolicy
+			if err := json.Unmarshal([]byte(value.String()), &obj); err == nil {
+				rpoInSecs := fmt.Sprintf("%s", reflect.TypeOf(obj["rpo_in_secs"]))
+				values = append(values, rpoInSecs)
+			}
+		}
+	}
+
+	return values
+}
+
 type resourceResiliencyPolicyModel struct {
 	DataLocationConstraint fwtypes.StringEnum[awstypes.DataLocationConstraint]     `tfsdk:"data_location_constraint"`
 	EstimatedCostTier      fwtypes.StringEnum[awstypes.EstimatedCostTier]          `tfsdk:"estimated_cost_tier"`
@@ -407,8 +614,7 @@ type resourceResiliencyPolicyModel struct {
 	PolicyName             types.String                                            `tfsdk:"policy_name"`
 	Tier                   fwtypes.StringEnum[awstypes.ResiliencyPolicyTier]       `tfsdk:"tier"`
 	Tags                   types.Map                                               `tfsdk:"tags"`
-	// TagsAll                types.Map                                               `tfsdk:"tags_all"`
-	Timeouts timeouts.Value `tfsdk:"timeouts"`
+	Timeouts               timeouts.Value                                          `tfsdk:"timeouts"`
 }
 
 type resourceResiliencyComponentModel struct {
@@ -421,27 +627,4 @@ type resourceResiliencyComponentModel struct {
 type resourceResiliencyObjectiveModel struct {
 	RpoInSecs types.Int32 `tfsdk:"rpo_in_secs"`
 	RtoInSecs types.Int32 `tfsdk:"rto_in_secs"`
-}
-
-func (r *resourceResiliencyPolicyModel) setId() {
-	r.ID = r.PolicyName
-}
-
-func modifyFailurePolicyKeys(inPolicy map[string]awstypes.FailurePolicy) map[string]awstypes.FailurePolicy {
-	outPolicy := make(map[string]awstypes.FailurePolicy)
-
-	policyKeyMap := map[string]string{
-		"az":       "AZ",
-		"hardware": "Hardware",
-		"region":   "Region",
-		"software": "Software",
-	}
-
-	for key, policy := range inPolicy {
-		if validKey, exists := policyKeyMap[key]; exists {
-			outPolicy[validKey] = policy
-		}
-	}
-
-	return outPolicy
 }
