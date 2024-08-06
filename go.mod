@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.27
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.11
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.9
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.10
 	github.com/aws/aws-sdk-go-v2/service/accessanalyzer v1.32.3
 	github.com/aws/aws-sdk-go-v2/service/account v1.19.3
 	github.com/aws/aws-sdk-go-v2/service/acm v1.28.4
@@ -176,7 +176,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/redshiftdata v1.27.3
 	github.com/aws/aws-sdk-go-v2/service/redshiftserverless v1.21.0
 	github.com/aws/aws-sdk-go-v2/service/rekognition v1.43.2
-	github.com/aws/aws-sdk-go-v2/service/resiliencehub v1.23.3
+	github.com/aws/aws-sdk-go-v2/service/resiliencehub v1.24.0
 	github.com/aws/aws-sdk-go-v2/service/resourceexplorer2 v1.12.3
 	github.com/aws/aws-sdk-go-v2/service/resourcegroups v1.24.3
 	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3
@@ -185,7 +185,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53domains v1.25.3
 	github.com/aws/aws-sdk-go-v2/service/route53profiles v1.2.3
 	github.com/aws/aws-sdk-go-v2/service/rum v1.19.3
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.58.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.58.3
 	github.com/aws/aws-sdk-go-v2/service/s3control v1.46.3
 	github.com/aws/aws-sdk-go-v2/service/scheduler v1.10.3
 	github.com/aws/aws-sdk-go-v2/service/schemas v1.26.3
@@ -229,7 +229,7 @@ require (
 	github.com/beevik/etree v1.4.1
 	github.com/cedar-policy/cedar-go v0.0.0-20240318205125-470d1fe984bb
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dlclark/regexp2 v1.11.2
+	github.com/dlclark/regexp2 v1.11.4
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/aws-cloudformation-resource-schema-sdk-go v0.23.0
@@ -266,7 +266,7 @@ require (
 	golang.org/x/crypto v0.25.0
 	golang.org/x/text v0.16.0
 	golang.org/x/tools v0.23.0
-	gopkg.in/dnaeon/go-vcr.v3 v3.2.0
+	gopkg.in/dnaeon/go-vcr.v3 v3.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	syreclabs.com/go/faker v1.2.3
 )
