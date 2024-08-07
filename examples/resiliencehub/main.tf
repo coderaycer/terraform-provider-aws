@@ -15,41 +15,41 @@ provider "aws" {
   profile = "hgreen-sb-terraform"
 }
 
-provider "awscc" {
-  region  = "us-east-1"
-  profile = "hgreen-sb-terraform"
-}
+# provider "awscc" {
+#   region  = "us-east-1"
+#   profile = "hgreen-sb-terraform"
+# }
 
-resource "awscc_resiliencehub_resiliency_policy" "awscc_test_policy" {
+# resource "awscc_resiliencehub_resiliency_policy" "awscc_test_policy" {
 
-  policy_name        = "awscc-test"
-  policy_description = "tester"
+#   policy_name        = "awscc-test"
+#   policy_description = "tester"
 
-  tier = "NonCritical"
+#   tier = "NonCritical"
 
-  policy = {
-    region = {
-      rpo_in_secs = 3
-      rto_in_secs = 3
-    }
-    az = {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-    hardware = {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-    software = {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-  }
+#   policy = {
+#     region = {
+#       rpo_in_secs = 3
+#       rto_in_secs = 3
+#     }
+#     az = {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#     hardware = {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#     software = {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#   }
 
-  tags = {
-    appId = "test"
-  }
-}
+#   tags = {
+#     appId = "test"
+#   }
+# }
 
 # import {
 #   to = aws_resiliencehub_resiliency_policy.aws_test_policy

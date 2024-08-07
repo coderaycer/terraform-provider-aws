@@ -18,9 +18,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -252,13 +254,22 @@ func (r *resourceResiliencyPolicy) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
+	var policyData resourceResiliencyComponentModel
+	resp.Diagnostics.Append(plan.Policy.As(ctx, &policyData, basetypes.ObjectAsOptions{})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	policy, diags := expandResiliencyPolicy(ctx, policyData)
+	resp.Diagnostics.Append(diags...)
+
 	in := &resiliencehub.CreateResiliencyPolicyInput{}
 	resp.Diagnostics.Append(flex.Expand(ctx, &plan, in)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	in.Policy = failurePolicyFromFramework(plan.Policy)
+	in.Policy = policy // failurePolicyFromFramework(plan.Policy)
 	in.Tags = getTagsIn(ctx)
 
 	out, err := conn.CreateResiliencyPolicy(ctx, in)
@@ -545,6 +556,50 @@ func findResiliencyPolicyByID(ctx context.Context, conn *resiliencehub.Client, i
 
 func (r *resourceResiliencyPolicyModel) setId() {
 	r.ID = r.ARN
+}
+
+func expandResiliencyPolicy(ctx context.Context, policyData resourceResiliencyComponentModel) (map[string]awstypes.FailurePolicy, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	policy := make(map[string]awstypes.FailurePolicy)
+
+	if !policyData.AZ.IsNull() {
+		var obj resourceResiliencyObjectiveModel
+		diags.Append(policyData.AZ.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
+		policy["AZ"] = awstypes.FailurePolicy{
+			RpoInSecs: obj.RpoInSecs.ValueInt32(),
+			RtoInSecs: obj.RtoInSecs.ValueInt32(),
+		}
+	}
+
+	if !policyData.Hardware.IsNull() {
+		var obj resourceResiliencyObjectiveModel
+		diags.Append(policyData.Hardware.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
+		policy["Hardware"] = awstypes.FailurePolicy{
+			RpoInSecs: obj.RpoInSecs.ValueInt32(),
+			RtoInSecs: obj.RtoInSecs.ValueInt32(),
+		}
+	}
+
+	if !policyData.Software.IsNull() {
+		var obj resourceResiliencyObjectiveModel
+		diags.Append(policyData.Software.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
+		policy["Software"] = awstypes.FailurePolicy{
+			RpoInSecs: obj.RpoInSecs.ValueInt32(),
+			RtoInSecs: obj.RtoInSecs.ValueInt32(),
+		}
+	}
+
+	if !policyData.Region.IsNull() {
+		var obj resourceResiliencyObjectiveModel
+		diags.Append(policyData.Region.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
+		policy["Region"] = awstypes.FailurePolicy{
+			RpoInSecs: obj.RpoInSecs.ValueInt32(),
+			RtoInSecs: obj.RtoInSecs.ValueInt32(),
+		}
+	}
+
+	return policy, diags
 }
 
 // failurePolicyFromFramework function modifies FailurePolicy keys to align with CreateResiliencyPolicy
