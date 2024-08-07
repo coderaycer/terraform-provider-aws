@@ -212,6 +212,12 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 						PlanModifiers: []planmodifier.Object{
 							objectplanmodifier.RequiresReplace(),
 						},
+						Validators: []validator.Object{
+							objectvalidator.AlsoRequires(
+								path.MatchRelative().AtName("rto_in_secs"),
+								path.MatchRelative().AtName("rpo_in_secs"),
+							),
+						},
 						Attributes: map[string]schema.Attribute{
 							"rto_in_secs": schema.Int32Attribute{
 								Description: "Recovery Time Objective (RTO) in seconds.",
