@@ -71,8 +71,8 @@ resource "aws_resiliencehub_resiliency_policy" "aws_test_policy" {
       rto_in_secs = 3600
     }
     az {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
+      rpo_in_secs = 86400
+      rto_in_secs = 86400
     }
     hardware {
       rpo_in_secs = 3600

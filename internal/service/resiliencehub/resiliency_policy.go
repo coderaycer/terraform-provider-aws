@@ -5,10 +5,8 @@ package resiliencehub
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/YakDriver/regexache"
@@ -217,7 +215,7 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 						Attributes: map[string]schema.Attribute{
 							"rto_in_secs": schema.Int32Attribute{
 								Description: "Recovery Time Objective (RTO) in seconds.",
-								Required:    true,
+								Optional:    true,
 								PlanModifiers: []planmodifier.Int32{
 									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
@@ -225,7 +223,7 @@ func (r *resourceResiliencyPolicy) Schema(ctx context.Context, req resource.Sche
 							},
 							"rpo_in_secs": schema.Int32Attribute{
 								Description: "Recovery Point Objective (RPO) in seconds.",
-								Required:    true,
+								Optional:    true,
 								PlanModifiers: []planmodifier.Int32{
 									int32planmodifier.UseStateForUnknown(),
 									int32planmodifier.RequiresReplace(),
@@ -559,104 +557,31 @@ func (r *resourceResiliencyPolicyModel) setId() {
 }
 
 func expandResiliencyPolicy(ctx context.Context, policyData resourceResiliencyComponentModel) (map[string]awstypes.FailurePolicy, diag.Diagnostics) {
+
 	var diags diag.Diagnostics
 
 	policy := make(map[string]awstypes.FailurePolicy)
 
-	if !policyData.AZ.IsNull() {
-		var obj resourceResiliencyObjectiveModel
-		diags.Append(policyData.AZ.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
-		policy["AZ"] = awstypes.FailurePolicy{
-			RpoInSecs: obj.RpoInSecs.ValueInt32(),
-			RtoInSecs: obj.RtoInSecs.ValueInt32(),
-		}
-	}
+	// Policy key case must align with key case in CreateResiliencyPolicy API documentation.
+	// See https://docs.aws.amazon.com/resilience-hub/latest/APIReference/API_CreateResiliencyPolicy.html
+	policyDataMap := map[string]fwtypes.ObjectValueOf[resourceResiliencyObjectiveModel]{
+		"AZ":       policyData.AZ,
+		"Hardware": policyData.Hardware,
+		"Software": policyData.Software,
+		"Region":   policyData.Region}
 
-	if !policyData.Hardware.IsNull() {
-		var obj resourceResiliencyObjectiveModel
-		diags.Append(policyData.Hardware.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
-		policy["Hardware"] = awstypes.FailurePolicy{
-			RpoInSecs: obj.RpoInSecs.ValueInt32(),
-			RtoInSecs: obj.RtoInSecs.ValueInt32(),
-		}
-	}
-
-	if !policyData.Software.IsNull() {
-		var obj resourceResiliencyObjectiveModel
-		diags.Append(policyData.Software.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
-		policy["Software"] = awstypes.FailurePolicy{
-			RpoInSecs: obj.RpoInSecs.ValueInt32(),
-			RtoInSecs: obj.RtoInSecs.ValueInt32(),
-		}
-	}
-
-	if !policyData.Region.IsNull() {
-		var obj resourceResiliencyObjectiveModel
-		diags.Append(policyData.Region.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
-		policy["Region"] = awstypes.FailurePolicy{
-			RpoInSecs: obj.RpoInSecs.ValueInt32(),
-			RtoInSecs: obj.RtoInSecs.ValueInt32(),
+	for policyKey, policyValue := range policyDataMap {
+		if !policyValue.IsNull() {
+			var obj resourceResiliencyObjectiveModel
+			diags.Append(policyValue.As(ctx, &obj, basetypes.ObjectAsOptions{})...)
+			policy[policyKey] = awstypes.FailurePolicy{
+				RpoInSecs: obj.RpoInSecs.ValueInt32(),
+				RtoInSecs: obj.RtoInSecs.ValueInt32(),
+			}
 		}
 	}
 
 	return policy, diags
-}
-
-// failurePolicyFromFramework function modifies FailurePolicy keys to align with CreateResiliencyPolicy
-// FailurePolicy valid key values.
-// See https://docs.aws.amazon.com/resilience-hub/latest/APIReference/API_CreateResiliencyPolicy.html
-func failurePolicyFromFramework(planPolicy fwtypes.ObjectValueOf[resourceResiliencyComponentModel]) map[string]awstypes.FailurePolicy {
-	inPolicy := make(map[string]awstypes.FailurePolicy)
-
-	policyKeyMap := map[string]string{
-		"az":       "AZ",
-		"hardware": "Hardware",
-		"region":   "Region",
-		"software": "Software",
-	}
-
-	for attr, value := range planPolicy.Attributes() {
-		if validKey, exists := policyKeyMap[attr]; exists {
-			var policy awstypes.FailurePolicy
-			var failurePolicy map[string]any
-			if err := json.Unmarshal([]byte(value.String()), &failurePolicy); err == nil {
-				if rpoInSecs, ok := failurePolicy["rpo_in_secs"].(float64); ok {
-					policy.RpoInSecs = int32(rpoInSecs)
-				}
-				if rtoInSecs, ok := failurePolicy["rto_in_secs"].(float64); ok {
-					policy.RtoInSecs = int32(rtoInSecs)
-				}
-			}
-			inPolicy[validKey] = policy
-		}
-	}
-
-	return inPolicy
-}
-
-func getFailurePolicy(planPolicy fwtypes.ObjectValueOf[resourceResiliencyComponentModel]) []string {
-
-	var values []string
-
-	policyKeyMap := map[string]string{
-		"az":       "AZ",
-		"hardware": "Hardware",
-		"region":   "Region",
-		"software": "Software",
-	}
-
-	for attr, value := range planPolicy.Attributes() {
-		if _, exists := policyKeyMap[attr]; exists {
-			var obj map[string]any
-			// var policy awstypes.FailurePolicy
-			if err := json.Unmarshal([]byte(value.String()), &obj); err == nil {
-				rpoInSecs := fmt.Sprintf("%s", reflect.TypeOf(obj["rpo_in_secs"]))
-				values = append(values, rpoInSecs)
-			}
-		}
-	}
-
-	return values
 }
 
 type resourceResiliencyPolicyModel struct {
