@@ -137,6 +137,7 @@ import (
 	launchwizard_sdkv2 "github.com/aws/aws-sdk-go-v2/service/launchwizard"
 	lexmodelsv2_sdkv2 "github.com/aws/aws-sdk-go-v2/service/lexmodelsv2"
 	lightsail_sdkv2 "github.com/aws/aws-sdk-go-v2/service/lightsail"
+	location_sdkv2 "github.com/aws/aws-sdk-go-v2/service/location"
 	lookoutmetrics_sdkv2 "github.com/aws/aws-sdk-go-v2/service/lookoutmetrics"
 	m2_sdkv2 "github.com/aws/aws-sdk-go-v2/service/m2"
 	mediaconnect_sdkv2 "github.com/aws/aws-sdk-go-v2/service/mediaconnect"
@@ -145,6 +146,7 @@ import (
 	mediapackage_sdkv2 "github.com/aws/aws-sdk-go-v2/service/mediapackage"
 	mediapackagev2_sdkv2 "github.com/aws/aws-sdk-go-v2/service/mediapackagev2"
 	mediastore_sdkv2 "github.com/aws/aws-sdk-go-v2/service/mediastore"
+	memorydb_sdkv2 "github.com/aws/aws-sdk-go-v2/service/memorydb"
 	mq_sdkv2 "github.com/aws/aws-sdk-go-v2/service/mq"
 	mwaa_sdkv2 "github.com/aws/aws-sdk-go-v2/service/mwaa"
 	neptunegraph_sdkv2 "github.com/aws/aws-sdk-go-v2/service/neptunegraph"
@@ -188,6 +190,7 @@ import (
 	servicecatalogappregistry_sdkv2 "github.com/aws/aws-sdk-go-v2/service/servicecatalogappregistry"
 	servicediscovery_sdkv2 "github.com/aws/aws-sdk-go-v2/service/servicediscovery"
 	servicequotas_sdkv2 "github.com/aws/aws-sdk-go-v2/service/servicequotas"
+	ses_sdkv2 "github.com/aws/aws-sdk-go-v2/service/ses"
 	sesv2_sdkv2 "github.com/aws/aws-sdk-go-v2/service/sesv2"
 	sfn_sdkv2 "github.com/aws/aws-sdk-go-v2/service/sfn"
 	shield_sdkv2 "github.com/aws/aws-sdk-go-v2/service/shield"
@@ -227,9 +230,7 @@ import (
 	kinesisvideo_sdkv1 "github.com/aws/aws-sdk-go/service/kinesisvideo"
 	lexmodelbuildingservice_sdkv1 "github.com/aws/aws-sdk-go/service/lexmodelbuildingservice"
 	licensemanager_sdkv1 "github.com/aws/aws-sdk-go/service/licensemanager"
-	locationservice_sdkv1 "github.com/aws/aws-sdk-go/service/locationservice"
 	macie2_sdkv1 "github.com/aws/aws-sdk-go/service/macie2"
-	memorydb_sdkv1 "github.com/aws/aws-sdk-go/service/memorydb"
 	neptune_sdkv1 "github.com/aws/aws-sdk-go/service/neptune"
 	networkmanager_sdkv1 "github.com/aws/aws-sdk-go/service/networkmanager"
 	opensearchservice_sdkv1 "github.com/aws/aws-sdk-go/service/opensearchservice"
@@ -246,7 +247,6 @@ import (
 	s3outposts_sdkv1 "github.com/aws/aws-sdk-go/service/s3outposts"
 	sagemaker_sdkv1 "github.com/aws/aws-sdk-go/service/sagemaker"
 	servicecatalog_sdkv1 "github.com/aws/aws-sdk-go/service/servicecatalog"
-	ses_sdkv1 "github.com/aws/aws-sdk-go/service/ses"
 	simpledb_sdkv1 "github.com/aws/aws-sdk-go/service/simpledb"
 	worklink_sdkv1 "github.com/aws/aws-sdk-go/service/worklink"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs"
@@ -821,8 +821,8 @@ func (c *AWSClient) LightsailClient(ctx context.Context) *lightsail_sdkv2.Client
 	return errs.Must(client[*lightsail_sdkv2.Client](ctx, c, names.Lightsail, make(map[string]any)))
 }
 
-func (c *AWSClient) LocationConn(ctx context.Context) *locationservice_sdkv1.LocationService {
-	return errs.Must(conn[*locationservice_sdkv1.LocationService](ctx, c, names.Location, make(map[string]any)))
+func (c *AWSClient) LocationClient(ctx context.Context) *location_sdkv2.Client {
+	return errs.Must(client[*location_sdkv2.Client](ctx, c, names.Location, make(map[string]any)))
 }
 
 func (c *AWSClient) LogsClient(ctx context.Context) *cloudwatchlogs_sdkv2.Client {
@@ -873,8 +873,8 @@ func (c *AWSClient) MediaStoreClient(ctx context.Context) *mediastore_sdkv2.Clie
 	return errs.Must(client[*mediastore_sdkv2.Client](ctx, c, names.MediaStore, make(map[string]any)))
 }
 
-func (c *AWSClient) MemoryDBConn(ctx context.Context) *memorydb_sdkv1.MemoryDB {
-	return errs.Must(conn[*memorydb_sdkv1.MemoryDB](ctx, c, names.MemoryDB, make(map[string]any)))
+func (c *AWSClient) MemoryDBClient(ctx context.Context) *memorydb_sdkv2.Client {
+	return errs.Must(client[*memorydb_sdkv2.Client](ctx, c, names.MemoryDB, make(map[string]any)))
 }
 
 func (c *AWSClient) NeptuneConn(ctx context.Context) *neptune_sdkv1.Neptune {
@@ -1061,8 +1061,8 @@ func (c *AWSClient) S3OutpostsConn(ctx context.Context) *s3outposts_sdkv1.S3Outp
 	return errs.Must(conn[*s3outposts_sdkv1.S3Outposts](ctx, c, names.S3Outposts, make(map[string]any)))
 }
 
-func (c *AWSClient) SESConn(ctx context.Context) *ses_sdkv1.SES {
-	return errs.Must(conn[*ses_sdkv1.SES](ctx, c, names.SES, make(map[string]any)))
+func (c *AWSClient) SESClient(ctx context.Context) *ses_sdkv2.Client {
+	return errs.Must(client[*ses_sdkv2.Client](ctx, c, names.SES, make(map[string]any)))
 }
 
 func (c *AWSClient) SESV2Client(ctx context.Context) *sesv2_sdkv2.Client {
