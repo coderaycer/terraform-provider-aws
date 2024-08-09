@@ -302,12 +302,17 @@ func (r *resourceResiliencyPolicy) Create(ctx context.Context, req resource.Crea
 	}
 
 	createTimeout := r.CreateTimeout(ctx, plan.Timeouts)
-	_, err = waitResiliencyPolicyCreated(ctx, conn, plan.ID.ValueString(), createTimeout)
+	created, err := waitResiliencyPolicyCreated(ctx, conn, plan.ID.ValueString(), createTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForCreation, ResNameResiliencyPolicy, plan.ID.ValueString(), err),
 			err.Error(),
 		)
+		return
+	}
+
+	resp.Diagnostics.Append(flex.Flatten(ctx, created, &plan)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -322,10 +327,8 @@ func (r *resourceResiliencyPolicy) Read(ctx context.Context, req resource.ReadRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	
-	stateId := *flex.StringFromFramework(ctx, state.ID)
 
-	out, err := findResiliencyPolicyByID(ctx, conn, stateId)
+	out, err := findResiliencyPolicyByID(ctx, conn, state.ID.ValueString())
 	if tfresource.NotFound(err) {
 		resp.State.RemoveResource(ctx)
 		return
@@ -338,15 +341,10 @@ func (r *resourceResiliencyPolicy) Read(ctx context.Context, req resource.ReadRe
 		return
 	}
 
-	// state.PolicyArn = flex.StringToFramework(ctx, out.PolicyArn)
-	// state.ID = flex.StringToFramework(ctx, out.PolicyArn)
-
 	resp.Diagnostics.Append(flex.Flatten(ctx, out, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	setTagsOut(ctx, out.Tags)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -369,10 +367,8 @@ func (r *resourceResiliencyPolicy) Update(ctx context.Context, req resource.Upda
 		!plan.DataLocationConstraint.Equal(state.DataLocationConstraint) ||
 		!plan.Tier.Equal(state.Tier) {
 
-		policyArn := *flex.StringFromFramework(ctx, plan.PolicyArn)
-
 		in := &resiliencehub.UpdateResiliencyPolicyInput{
-			PolicyArn: aws.String(policyArn),
+			PolicyArn: flex.StringFromFramework(ctx, plan.ID),
 		}
 
 		if !plan.PolicyDescription.Equal(state.PolicyDescription) {
@@ -389,35 +385,21 @@ func (r *resourceResiliencyPolicy) Update(ctx context.Context, req resource.Upda
 
 		_, err := conn.UpdateResiliencyPolicy(ctx, in)
 		if err != nil {
-			resp.Diagnostics.AddError(fmt.Sprintf("reading Resilience Hub policy ID (%s)", policyArn), err.Error())
-			return
-		}
-
-		out, err := findResiliencyPolicyByID(ctx, conn, policyArn)
-		if tfresource.NotFound(err) {
-			resp.State.RemoveResource(ctx)
-			return
-		}
-
-		if err != nil {
-			resp.Diagnostics.AddError(
-				create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionSetting, ResNameResiliencyPolicy, policyArn, err),
-				err.Error(),
-			)
+			resp.Diagnostics.AddError(fmt.Sprintf("reading Resilience Hub policy ID (%s)", plan.PolicyArn.String()), err.Error())
 			return
 		}
 
 		updateTimeout := r.UpdateTimeout(ctx, plan.Timeouts)
-		_, err = waitResiliencyPolicyUpdated(ctx, conn, policyArn, updateTimeout)
+		updated, err := waitResiliencyPolicyUpdated(ctx, conn, plan.ID.ValueString(), updateTimeout)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForUpdate, ResNameResiliencyPolicy, policyArn, err),
+				create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForUpdate, ResNameResiliencyPolicy, plan.PolicyArn.String(), err),
 				err.Error(),
 			)
 			return
 		}
 
-		resp.Diagnostics.Append(flex.Flatten(ctx, out, &plan)...)
+		resp.Diagnostics.Append(flex.Flatten(ctx, updated, &plan)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -449,10 +431,8 @@ func (r *resourceResiliencyPolicy) Delete(ctx context.Context, req resource.Dele
 		return
 	}
 
-	stateId := *flex.StringFromFramework(ctx, state.ID)
-
 	deleteTimeout := r.DeleteTimeout(ctx, state.Timeouts)
-	_, err = waitResiliencyPolicyDeleted(ctx, conn, stateId, deleteTimeout)
+	_, err = waitResiliencyPolicyDeleted(ctx, conn, state.ID.ValueString(), deleteTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			create.ProblemStandardMessage(names.ResilienceHub, create.ErrActionWaitingForDeletion, ResNameResiliencyPolicy, state.ID.String(), err),
@@ -463,7 +443,7 @@ func (r *resourceResiliencyPolicy) Delete(ctx context.Context, req resource.Dele
 }
 
 func (r *resourceResiliencyPolicy) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(names.AttrID), req.ID)...)
+	resource.ImportStatePassthroughID(ctx, path.Root(names.AttrID), req, resp)
 }
 
 func (r *resourceResiliencyPolicy) ModifyPlan(ctx context.Context, request resource.ModifyPlanRequest, response *resource.ModifyPlanResponse) {

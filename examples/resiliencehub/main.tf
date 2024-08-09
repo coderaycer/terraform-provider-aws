@@ -53,38 +53,38 @@ provider "aws" {
 
 # import {
 #   to = aws_resiliencehub_resiliency_policy.aws_test_policy
-#   id = "arn:aws:resiliencehub:us-east-1:253131516168:resiliency-policy/21d4d0f9-4a98-47d2-bc7f-9093377966af"
+#   id = "arn:aws:resiliencehub:us-east-1:253131516168:resiliency-policy/cbc5419d-041c-43b7-a735-3cac5fee723b"
 # }
 
-resource "aws_resiliencehub_resiliency_policy" "aws_test_policy" {
+# resource "aws_resiliencehub_resiliency_policy" "aws_test_policy" {
 
-  policy_name        = "aws-test"
-  policy_description = "aws-tester"
+#   policy_name        = "aws-test"
+#   policy_description = "aws-tester"
 
-  tier = "NonCritical"
+#   tier = "NonCritical" // "NotApplicable" // "NonCritical"
 
-  data_location_constraint = "AnyLocation"
+#   data_location_constraint = "SameCountry" // "AnyLocation"
 
-  policy {
-    region {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-    az {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-    hardware {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-    software {
-      rpo_in_secs = 3600
-      rto_in_secs = 3600
-    }
-  }
+#   policy {
+#     region {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#     az {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#     hardware {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#     software {
+#       rpo_in_secs = 3600
+#       rto_in_secs = 3600
+#     }
+#   }
 
-  tags = {
-    appId = "test1"
-  }
-}
+#   tags = {
+#     appId = "test9"
+#   }
+# }
